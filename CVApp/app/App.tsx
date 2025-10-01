@@ -9,6 +9,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import LoginScreen from './screens/LoginScreen';
 import DashboardScreen from './screens/DashboardScreen';
 import ClienteScreen from './screens/ClienteScreen';
+import CampaniaScreen from './screens/CampaniaScreen';
 
 import { RootStackParamList } from './types'; // tu types.ts
 
@@ -50,6 +51,17 @@ export default function App(): React.ReactElement {
             <Stack.Screen name="Cliente">
               {({ navigation, route }) => (
                 <ClienteScreen
+                  navigation={navigation}
+                  route={route}
+                  darkMode={darkMode}
+                  setDarkMode={setDarkMode}
+                />
+              )}
+            </Stack.Screen>
+
+            <Stack.Screen name="Campania">
+              {({ navigation, route }) => (
+                <CampaniaScreen
                   navigation={navigation}
                   route={route}
                   darkMode={darkMode}

@@ -20,7 +20,9 @@ export default function DashboardScreen({ navigation, darkMode }: Props) {
         <Button style={styles.btn} onPress={() => navigation.navigate('Cliente')}>
           Clientes
         </Button>
-        <Button style={styles.btn}>Botón 2</Button>
+        <Button style={styles.btn} onPress={() => navigation.navigate('Campania')}>
+         Campaña
+        </Button>
         <Button style={styles.btn}>Botón 3</Button>
         <Button style={styles.btn}>Botón 4</Button>
       </View>

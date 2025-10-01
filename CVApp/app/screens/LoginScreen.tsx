@@ -15,7 +15,7 @@ export default function LoginScreen({ navigation, darkMode, setDarkMode }: Props
   const [error, setError] = useState('');
 
   const handleLogin = () => {
-    if (username === 'admin' && password === '1234') {
+    if (username === 'admin' && password === '123') {
       setError('');
       navigation.navigate('Dashboard'); // ✅ Navegación directa
     } else {

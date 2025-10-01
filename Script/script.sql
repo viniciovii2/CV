@@ -40,3 +40,24 @@ CREATE TABLE tbl_mail
 --select * from tbl_mail
 
 
+------- CATALOGO
+CREATE TABLE tbl_provincia
+(
+	Codigo varchar(10),
+	Provincia varchar(50)
+)
+
+CREATE TABLE tbl_canton
+(
+	Codigo varchar(10),
+	CodigoProvincia varchar(10),
+	Canton varchar(50)
+)
+
+CREATE TABLE tbl_parroquia
+(
+	Codigo varchar(10),
+	CodigoProvincia varchar(10),
+	CodigoCanton varchar(10),
+	Parroquia varchar(50)
+)
