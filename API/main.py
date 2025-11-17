@@ -257,3 +257,40 @@ def actualizar_estado_cliente(data: dict):
 
     except Exception as e:
         return {"error": str(e)}
+    
+    # --- Estadísticas de seguimiento de campaña ---
+@app.get("/estadisticaCampania/{CodigoCampania}")
+def estadistica_campania(CodigoCampania: int):
+    """
+    Devuelve resumen de clientes gestionados y pendientes
+    dentro de una campaña específica.
+    """
+    try:
+        query = """
+            SELECT 
+                COUNT(*) AS Total,
+                SUM(CASE WHEN Estado = 2 THEN 1 ELSE 0 END) AS Gestionados,
+                SUM(CASE WHEN Estado <> 2 THEN 1 ELSE 0 END) AS Pendientes
+            FROM tbl_campania_detalle
+            WHERE CodigoCampania = ?
+        """
+
+        with get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(query, (CodigoCampania,))
+            row = cursor.fetchone()
+
+            # Si no hay datos, devuelve 0
+            total = row[0] if row and row[0] else 0
+            gestionados = row[1] if row and row[1] else 0
+            pendientes = row[2] if row and row[2] else 0
+
+        return {
+            "Total": int(total),
+            "Gestionados": int(gestionados),
+            "Pendientes": int(pendientes)
+        }
+
+    except Exception as e:
+        print("❌ Error en /estadisticaCampania:", str(e))
+        return {"error": str(e)}

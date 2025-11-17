@@ -4,4 +4,5 @@ export type RootStackParamList = {
   Dashboard: undefined;
   Cliente: undefined;
   Campania: undefined;
+  Seguimiento: undefined;
 };

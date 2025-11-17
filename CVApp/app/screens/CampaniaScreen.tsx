@@ -8,30 +8,42 @@ import {
   SelectItem,
   IndexPath,
   Button,
+  Icon,
+  TopNavigationAction,
+  Spinner,
+  Card,
 } from '@ui-kitten/components';
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
-import MensajeModal from '../components/MensajeModal'; // 👈 importa el modal
+import MensajeModal from '../components/MensajeModal';
 
+// Tipo unificado para división política
+type DivisionItem = { Codigo: string } & (
+  | { Provincia: string }
+  | { Canton: string }
+  | { Parroquia: string }
+);
 
 type Props = NativeStackScreenProps<RootStackParamList, 'Campania'> & {
   darkMode: boolean;
   setDarkMode: React.Dispatch<React.SetStateAction<boolean>>;
 };
 
-export default function ({ navigation, darkMode }: Props) {
+export default function CampaniaScreen({ navigation, darkMode, setDarkMode }: Props) {
   const [nombre, setNombre] = useState('');
   const [mensaje, setMensaje] = useState('');
   const [fechaInicio, setFechaInicio] = useState('');
   const [fechaFin, setFechaFin] = useState('');
+  const [step, setStep] = useState(1);
 
-  const [provincias, setProvincias] = useState<{ Codigo: string; Provincia: string }[]>([]);
+  const [loadingCantones, setLoadingCantones] = useState(false);
+  const [loadingParroquias, setLoadingParroquias] = useState(false);
+
+  const [provincias, setProvincias] = useState<DivisionItem[]>([]);
   const [provinciaIndex, setProvinciaIndex] = useState<IndexPath | null>(null);
-
-  const [cantones, setCantones] = useState<{ Codigo: string; Canton: string }[]>([]);
+  const [cantones, setCantones] = useState<DivisionItem[]>([]);
   const [cantonIndex, setCantonIndex] = useState<IndexPath | null>(null);
-
-  const [parroquias, setParroquias] = useState<{ Codigo: string; Parroquia: string }[]>([]);
+  const [parroquias, setParroquias] = useState<DivisionItem[]>([]);
   const [parroquiaIndex, setParroquiaIndex] = useState<IndexPath | null>(null);
 
   const sueldoOptions = [
@@ -43,28 +55,28 @@ export default function ({ navigation, darkMode }: Props) {
   const [sueldoIndex, setSueldoIndex] = useState<IndexPath | null>(null);
 
   const API_BASE = 'http://192.168.6.218:8000';
-
   const [loadingPreview, setLoadingPreview] = useState(false);
-  const [previewMessage, setPreviewMessage] = useState('');
+  const [preview, setPreview] = useState<{ count: number; provincia?: string; canton?: string; parroquia?: string; sueldo?: string } | null>(null);
 
-  // Estado del modal de mensaje
   const [modalVisible, setModalVisible] = useState(false);
   const [modalType, setModalType] = useState<'success' | 'error' | 'warning' | 'info'>('info');
   const [modalMessage, setModalMessage] = useState('');
 
+  // Colores (mismos que Dashboard)
+  const primaryColor = darkMode ? '#8B5CF6' : '#6A1B9A';
+  const backgroundColor = darkMode ? '#1E1E1E' : '#F9F9F9';
+  const textColor = darkMode ? '#FFFFFF' : '#222';
 
   const showModal = (type: 'success' | 'error' | 'warning' | 'info', message: string) => {
-    if (Platform.OS === 'web') {
-    // En web usamos alert en vez de modal
-    alert(message);
-  } else {
-    // En móvil usamos el modal normal
-    setModalType(type);
-    setModalMessage(message);
-    setModalVisible(true);
-  }
+    if (Platform.OS === 'web') alert(message);
+    else {
+      setModalType(type);
+      setModalMessage(message);
+      setModalVisible(true);
+    }
   };
-  
+
+  // Cargar provincias
   useEffect(() => {
     const fetchProvincias = async () => {
       try {
@@ -78,53 +90,53 @@ export default function ({ navigation, darkMode }: Props) {
     fetchProvincias();
   }, []);
 
-  const handleProvinciaSelect = (index: IndexPath | IndexPath[]) => {
+  const handleProvinciaSelect = async (index: IndexPath | IndexPath[]) => {
+    setStep(2);
     const i = index as IndexPath;
     setProvinciaIndex(i);
     setCantonIndex(null);
     setParroquiaIndex(null);
+    setCantones([]);
+    setParroquias([]);
+    setLoadingCantones(true);
 
-    const fetchCantones = async () => {
+    try {
       const provinciaSeleccionada = provincias[i.row];
-      if (provinciaSeleccionada) {
-        try {
-          const response = await fetch(`${API_BASE}/canton/${provinciaSeleccionada.Codigo}`);
-          const data = await response.json();
-          setCantones(data);
-        } catch (error) {
-          console.error('Error cargando cantones:', error);
-        }
-      }
-    };
-    fetchCantones();
+      const response = await fetch(`${API_BASE}/canton/${provinciaSeleccionada.Codigo}`);
+      const data = await response.json();
+      setCantones(data);
+    } catch (error) {
+      console.error('Error cargando cantones:', error);
+    } finally {
+      setLoadingCantones(false);
+    }
   };
 
-  const handleCantonSelect = (index: IndexPath | IndexPath[]) => {
+  const handleCantonSelect = async (index: IndexPath | IndexPath[]) => {
+    setStep(3);
     const i = index as IndexPath;
     setCantonIndex(i);
     setParroquiaIndex(null);
+    setParroquias([]);
+    setLoadingParroquias(true);
 
-    const fetchParroquias = async () => {
+    try {
       const provinciaSeleccionada = provincias[provinciaIndex?.row ?? 0];
       const cantonSeleccionado = cantones[i.row];
-      if (provinciaSeleccionada && cantonSeleccionado) {
-        try {
-          const response = await fetch(
-            `${API_BASE}/parroquias/${provinciaSeleccionada.Codigo}/${cantonSeleccionado.Codigo}`
-          );
-          const data = await response.json();
-          setParroquias(data);
-        } catch (error) {
-          console.error('Error cargando parroquias:', error);
-        }
-      }
-    };
-    fetchParroquias();
+      const response = await fetch(`${API_BASE}/parroquias/${provinciaSeleccionada.Codigo}/${cantonSeleccionado.Codigo}`);
+      const data = await response.json();
+      setParroquias(data);
+    } catch (error) {
+      console.error('Error cargando parroquias:', error);
+    } finally {
+      setLoadingParroquias(false);
+    }
   };
 
   const VistaPrevia = async () => {
+    setStep(4);
     setLoadingPreview(true);
-    setPreviewMessage('');
+    setPreview(null);
 
     try {
       const provincia = provincias[provinciaIndex?.row ?? 0]?.Codigo ?? '';
@@ -133,238 +145,265 @@ export default function ({ navigation, darkMode }: Props) {
       const sueldo = sueldoOptions[sueldoIndex?.row ?? 0]?.Codigo ?? '';
 
       if (!provincia || !canton || !parroquia || !sueldo) {
-        setPreviewMessage('Seleccione todos los campos primero');
+        showModal('warning', 'Seleccione todos los campos primero');
         setLoadingPreview(false);
         return;
       }
 
-      const response = await fetch(
-        `${API_BASE}/vistaPrevia/${provincia}/${canton}/${parroquia}/${sueldo}`
-      );
+      const response = await fetch(`${API_BASE}/vistaPrevia/${provincia}/${canton}/${parroquia}/${sueldo}`);
       const data = await response.json();
-      setPreviewMessage(`Se encontraron ${data.count} clientes`);
-    } catch (error) {
-      console.error(error);
-      setPreviewMessage('Error al calcular vista previa');
+
+      setPreview({
+        count: data.count,
+        provincia:
+          provinciaIndex && 'Provincia' in provincias[provinciaIndex.row]
+            ? (provincias[provinciaIndex.row] as any).Provincia
+            : '',
+        canton:
+          cantonIndex && 'Canton' in cantones[cantonIndex.row]
+            ? (cantones[cantonIndex.row] as any).Canton
+            : '',
+        parroquia:
+          parroquiaIndex && 'Parroquia' in parroquias[parroquiaIndex.row]
+            ? (parroquias[parroquiaIndex.row] as any).Parroquia
+            : '',
+        sueldo: sueldoOptions[sueldoIndex?.row ?? 0]?.Label,
+      });
+    } catch {
+      showModal('error', 'Error al calcular vista previa');
     } finally {
       setLoadingPreview(false);
     }
   };
 
-// --- Función para Generar Campaña ---
-const GenerarCampania = async () => {
-  try {
-    console.log('GenerarCampania');
+  const GenerarCampania = async () => {
+    setStep(5);
+    if (new Date(fechaInicio) > new Date(fechaFin)) {
+      showModal('warning', 'La fecha de inicio no puede ser posterior a la fecha de fin.');
+      return;
+    }
 
     const provincia = provincias[provinciaIndex?.row ?? 0]?.Codigo ?? '';
     const canton = cantones[cantonIndex?.row ?? 0]?.Codigo ?? '';
     const parroquia = parroquias[parroquiaIndex?.row ?? 0]?.Codigo ?? '';
     const sueldo = sueldoOptions[sueldoIndex?.row ?? 0]?.Codigo ?? '';
 
-    if (!nombre || !mensaje|| !fechaInicio || !fechaFin || !provincia || !canton || !parroquia || !sueldo) {
-      showModal('warning','Complete todos los campos antes de generar la campaña');
-      //alert("warning")
+    if (!nombre || !mensaje || !fechaInicio || !fechaFin || !provincia || !canton || !parroquia || !sueldo) {
+      showModal('warning', 'Complete todos los campos antes de generar la campaña');
       return;
     }
 
-    // Reemplazamos "/" por "-" si tu API lo necesita
-    const inicio = fechaInicio.replaceAll('-', '-');
-    const fin = fechaFin.replaceAll('-', '-');
+    const usuario = 'admin';
+    try {
+      const response = await fetch(
+        `${API_BASE}/generarCampania/${provincia}/${canton}/${parroquia}/${sueldo}/${fechaInicio}/${fechaFin}/${encodeURIComponent(
+          nombre
+        )}/${encodeURIComponent(mensaje)}/${usuario}`,
+        { method: 'POST' }
+      );
 
-    const usuario = 'admin'; // puedes reemplazar por usuario actual
-    const response = await fetch(
-      `${API_BASE}/generarCampania/${provincia}/${canton}/${parroquia}/${sueldo}/${inicio}/${fin}/${encodeURIComponent(nombre)}/${encodeURIComponent(mensaje)}/${usuario}`,
-      { method: 'POST' }
-    );
-
-    const data = await response.json();
-    if (data.error) {
-      showModal('error',`Error: ${data.error}`);
-    } else {
-      showModal('success','Campaña generada con éxito!');
+      const data = await response.json();
+      if (data.error) showModal('error', `Error: ${data.error}`);
+      else showModal('success', '¡Campaña generada con éxito!');
+    } catch {
+      showModal('error', 'Error al generar la campaña');
     }
-  } catch (error) {
-    console.error(error);
-    showModal('error','Error al generar la campaña');
-  }
-};
+  };
+
+  const Limpiar = () => {
+    setNombre('');
+    setMensaje('');
+    setFechaInicio('');
+    setFechaFin('');
+    setProvinciaIndex(null);
+    setCantonIndex(null);
+    setParroquiaIndex(null);
+    setSueldoIndex(null);
+    setPreview(null);
+    setStep(1);
+  };
 
   return (
-    <Layout style={styles.container}>
+    <Layout style={[styles.container, { backgroundColor }]}>
+      {/* Cabecera */}
+      <View style={styles.header}>
+        <TopNavigationAction
+          icon={(props) => <Icon {...props} name="arrow-back-outline" />}
+          onPress={() => navigation.goBack()}
+        />
+        <View style={styles.headerCenter}>
+          <Icon name="flag-outline" fill={primaryColor} style={{ width: 32, height: 32, marginRight: 8 }} />
+          <Text category="h5" style={[styles.headerTitle, { color: primaryColor }]}>
+            Campañas
+          </Text>
+        </View>
+        <TopNavigationAction
+          icon={(props) => <Icon {...props} name={darkMode ? 'sun-outline' : 'moon-outline'} />}
+          onPress={() => setDarkMode(!darkMode)}
+        />
+      </View>
+
+      {/* Contenido */}
       <ScrollView>
-        <Text category="h5" style={styles.title}>Nueva Campaña</Text>
+        <Text style={[styles.stepText, { color: '#aaa' }]}>Paso {step} de 5</Text>
 
         <Input placeholder="Nombre de la campaña" value={nombre} onChangeText={setNombre} style={styles.input} />
         <Input placeholder="Mensaje" value={mensaje} onChangeText={setMensaje} style={styles.input} />
 
-        {/* Fecha Inicio */}
-        <Text category="s1" style={styles.label}>Fecha Inicio</Text>
-        {Platform.OS === 'web' ? (
-          <input
-            type="date"
-            value={fechaInicio}
-            onChange={(e) => setFechaInicio(e.target.value)}
-            style={styles.inputWeb}
-          />
-        ) : (
-          <Input placeholder="Fecha inicio" value={fechaInicio} onChangeText={setFechaInicio} style={styles.input} />
-        )}
+        {/* Fechas */}
+        {[{ label: 'Fecha Inicio', value: fechaInicio, setter: setFechaInicio },
+          { label: 'Fecha Fin', value: fechaFin, setter: setFechaFin }].map((f, i) => (
+          <View key={i}>
+            <Text category="s1" style={[styles.label, { color: textColor }]}>{f.label}</Text>
+            {Platform.OS === 'web' ? (
+              <input
+                type="date"
+                value={f.value}
+                onChange={(e) => f.setter(e.target.value)}
+                style={styles.inputWeb}
+                onFocus={(e) => (e.target.style.boxShadow = '0 0 6px rgba(139, 92, 246, 0.4)')}
+                onBlur={(e) => (e.target.style.boxShadow = 'none')}
+              />
+            ) : (
+              <Input value={f.value} onChangeText={f.setter} style={styles.input} />
+            )}
+          </View>
+        ))}
 
-        {/* Fecha Fin */}
-        <Text category="s1" style={styles.label}>Fecha Fin</Text>
-        {Platform.OS === 'web' ? (
-          <input
-            type="date"
-            value={fechaFin}
-            onChange={(e) => setFechaFin(e.target.value)}
-            style={styles.inputWeb}
-          />
-        ) : (
-          <Input placeholder="Fecha fin" value={fechaFin} onChangeText={setFechaFin} style={styles.input} />
-        )}
+        {/* Selectores */}
+        {loadingCantones && <Spinner size="small" style={{ marginTop: 4 }} />}
+        {loadingParroquias && <Spinner size="small" style={{ marginTop: 4 }} />}
 
-        {/* Provincia */}
-        <Text category="s1" style={styles.label}>Provincia</Text>
-        {Platform.OS === 'web' ? (
-          <select
-            value={provinciaIndex?.row ?? ''}
-            onChange={(e) => handleProvinciaSelect(new IndexPath(parseInt(e.target.value)))}
-            style={styles.inputWeb}
-          >
-            <option value="">-Seleccione-</option>
-            {provincias.map((p, i) => <option key={i} value={i}>{p.Provincia}</option>)}
-          </select>
-        ) : (
-          <Select
-            selectedIndex={provinciaIndex || undefined}
-            onSelect={(index) => handleProvinciaSelect(index as IndexPath)}
-            value={provinciaIndex !== null ? provincias[provinciaIndex.row]?.Provincia : '-Seleccione-'}
-            style={styles.input}
-          >
-            {[{ Codigo: '', Provincia: '-Seleccione-' }, ...provincias].map((p, i) => (
-              <SelectItem key={i.toString()} title={p.Provincia} />
-            ))}
-          </Select>
-        )}
-
-        {/* Cantón */}
-        <Text category="s1" style={styles.label}>Cantón</Text>
-        {Platform.OS === 'web' ? (
-          <select
-            value={cantonIndex?.row ?? ''}
-            onChange={(e) => handleCantonSelect(new IndexPath(parseInt(e.target.value)))}
-            disabled={!provinciaIndex}
-            style={styles.inputWeb}
-          >
-            <option value="">-Seleccione-</option>
-            {cantones.map((c, i) => <option key={i} value={i}>{c.Canton}</option>)}
-          </select>
-        ) : (
-          <Select
-            disabled={!provinciaIndex}
-            selectedIndex={cantonIndex || undefined}
-            onSelect={(index) => handleCantonSelect(index as IndexPath)}
-            value={cantonIndex !== null ? cantones[cantonIndex.row]?.Canton : '-Seleccione-' }
-            style={styles.input}
-          >
-            {[{ Codigo: '', Canton: '-Seleccione-' }, ...cantones].map((c, i) => (
-              <SelectItem key={i.toString()} title={c.Canton} />
-            ))}
-          </Select>
-        )}
-
-        {/* Parroquia */}
-        <Text category="s1" style={styles.label}>Parroquia</Text>
-        {Platform.OS === 'web' ? (
-          <select
-            value={parroquiaIndex?.row ?? ''}
-            onChange={(e) => setParroquiaIndex(new IndexPath(parseInt(e.target.value)))}
-            disabled={!cantonIndex}
-            style={styles.inputWeb}
-          >
-            <option value="">-Seleccione-</option>
-            {parroquias.map((p, i) => <option key={i} value={i}>{p.Parroquia}</option>)}
-          </select>
-        ) : (
-          <Select
-            disabled={!cantonIndex}
-            selectedIndex={parroquiaIndex || undefined}
-            onSelect={(index) => setParroquiaIndex(index as IndexPath)}
-            value={parroquiaIndex !== null ? parroquias[parroquiaIndex.row]?.Parroquia : '-Seleccione-' }
-            style={styles.input}
-          >
-            {[{ Codigo: '', Parroquia: '-Seleccione-' }, ...parroquias].map((p, i) => (
-              <SelectItem key={i.toString()} title={p.Parroquia} />
-            ))}
-          </Select>
-        )}
+        {[{ label: 'Provincia', data: provincias, idx: provinciaIndex, on: handleProvinciaSelect },
+          { label: 'Cantón', data: cantones, idx: cantonIndex, on: handleCantonSelect },
+          { label: 'Parroquia', data: parroquias, idx: parroquiaIndex, on: setParroquiaIndex }].map((s, i) => (
+          <View key={i}>
+            <Text category="s1" style={[styles.label, { color: textColor }]}>{s.label}</Text>
+            {Platform.OS === 'web' ? (
+              <select
+                value={s.idx?.row ?? ''}
+                onChange={(e) => s.on(new IndexPath(parseInt(e.target.value)))}
+                style={styles.inputWeb}
+                onFocus={(e) => (e.target.style.boxShadow = '0 0 6px rgba(139, 92, 246, 0.4)')}
+                onBlur={(e) => (e.target.style.boxShadow = 'none')}
+              >
+                <option value="">-Seleccione-</option>
+                {s.data.map((v: any, j) => (
+                  <option key={j} value={j}>
+                    {'Provincia' in v ? v.Provincia : 'Canton' in v ? v.Canton : v.Parroquia}
+                  </option>
+                ))}
+              </select>
+            ) : (
+              <Select selectedIndex={s.idx || undefined} onSelect={(index) => s.on(index as IndexPath)} style={styles.input}>
+                {s.data.map((v: any, j) => (
+                  <SelectItem key={j} title={'Provincia' in v ? v.Provincia : 'Canton' in v ? v.Canton : v.Parroquia} />
+                ))}
+              </Select>
+            )}
+          </View>
+        ))}
 
         {/* Sueldo */}
-        <Text category="s1" style={styles.label}>Sueldo</Text>
+        <Text category="s1" style={[styles.label, { color: textColor }]}>Sueldo</Text>
         {Platform.OS === 'web' ? (
           <select
             value={sueldoIndex?.row ?? ''}
             onChange={(e) => setSueldoIndex(new IndexPath(parseInt(e.target.value)))}
             style={styles.inputWeb}
+            onFocus={(e) => (e.target.style.boxShadow = '0 0 6px rgba(139, 92, 246, 0.4)')}
+            onBlur={(e) => (e.target.style.boxShadow = 'none')}
           >
             <option value="">-Seleccione-</option>
             {sueldoOptions.map((s, i) => <option key={i} value={i}>{s.Label}</option>)}
           </select>
         ) : (
-          <Select
-            selectedIndex={sueldoIndex || undefined}
-            onSelect={(index) => setSueldoIndex(index as IndexPath)}
-            value={sueldoIndex !== null ? sueldoOptions[sueldoIndex.row].Label : '-Seleccione-' }
-            style={styles.input}
-          >
-            {[{ Codigo: '', Label: '-Seleccione-' }, ...sueldoOptions].map((s, i) => (
-              <SelectItem key={i.toString()} title={s.Label} />
-            ))}
+          <Select selectedIndex={sueldoIndex || undefined} onSelect={(index) => setSueldoIndex(index as IndexPath)} style={styles.input}>
+            {sueldoOptions.map((s, i) => <SelectItem key={i} title={s.Label} />)}
           </Select>
         )}
 
-        {/* Botones */}
-        <Button style={[styles.button, styles.previewBtn]} onPress={VistaPrevia}>
+        {/* Vista previa */}
+        <Button
+          accessoryLeft={(props) => <Icon {...props} name="search-outline" />}
+          style={[styles.button, { backgroundColor: primaryColor }]}
+          onPress={VistaPrevia}>
           {loadingPreview ? <ActivityIndicator color="#fff" /> : 'Vista Previa'}
         </Button>
-        {previewMessage ? (
-          <Text style={[styles.previewMessage, { color: 'green' }]}>{previewMessage}</Text>
-        ) : null}
-        <Button style={styles.button} onPress= {GenerarCampania}>Generar Campaña</Button>
 
-        {/* Botón Atrás al final */}
-        <Button appearance="outline" style={styles.backBtn} onPress={() => navigation.goBack()}>
-                Atrás
-              </Button>
+        {preview && (
+          <Card style={[styles.previewCard, { backgroundColor: darkMode ? '#252526' : '#fff' }]}>
+            <Text style={{ color: textColor }}>
+              Clientes encontrados: <Text style={{ color: '#25D366' }}>{preview.count}</Text>
+            </Text>
+            <Text style={{ color: textColor }}>Provincia: {preview.provincia}</Text>
+            <Text style={{ color: textColor }}>Cantón: {preview.canton}</Text>
+            <Text style={{ color: textColor }}>Parroquia: {preview.parroquia}</Text>
+            <Text style={{ color: textColor }}>Rango salarial: {preview.sueldo}</Text>
+          </Card>
+        )}
+
+        {/* Generar */}
+        <Button
+          accessoryLeft={(props) => <Icon {...props} name="paper-plane-outline" />}
+          style={[styles.button, { backgroundColor: '#25D366' }]}
+          onPress={GenerarCampania}>
+          Generar Campaña
+        </Button>
+
+        {/* Limpiar selección */}
+        <Button
+          appearance="ghost"
+          status="basic"
+          size="small"
+          accessoryLeft={(props) => <Icon {...props} name="refresh-outline" fill={primaryColor} />}
+          onPress={Limpiar}
+          style={{ alignSelf: 'center', marginVertical: 8 }}>
+          Limpiar selección
+        </Button>
       </ScrollView>
 
-      <MensajeModal
-      visible={modalVisible}
-      type={modalType}
-      message={modalMessage}
-      onClose={() => setModalVisible(false)}
-    />
-
+      <MensajeModal visible={modalVisible} type={modalType} message={modalMessage} onClose={() => setModalVisible(false)} />
     </Layout>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 16 },
-  title: { marginBottom: 8, textAlign: 'center' },
+  header: {
+    marginTop: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+  },
+  headerCenter: { flexDirection: 'row', alignItems: 'center' },
+  headerTitle: { marginLeft: 8, fontWeight: 'bold' },
+  stepText: { textAlign: 'center', marginVertical: 6 },
   input: { marginVertical: 8 },
   inputWeb: {
-    marginVertical: 8,
-    padding: 8,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    backgroundColor: '#fff',
-    color: '#222',
-  },
-  label: { marginTop: 8 },
-  button: { marginVertical: 8 },
-  previewBtn: { backgroundColor: '#4CAF50' },
-  previewMessage: { marginTop: 4, fontWeight: 'bold' },
-  backBtn: { marginVertical: 12 },
+  marginVertical: 8,
+  padding: 10,
+  borderRadius: 10,
+  borderWidth: 1,
+  borderColor: '#6B21A8',
+  backgroundColor: '#2B2B2B',
+  color: '#FFF',
+  fontSize: 15,
+  width: '100%',
+  position: 'relative',
+  zIndex: 10, // 👈 asegura que esté sobre los labels y cards
+  ...(Platform.OS === 'web'
+    ? {
+        outline: 'none',
+        appearance: 'none',
+        cursor: 'pointer',
+        transition: 'all 0.2s ease-in-out',
+      } as any
+    : {}),
+},
+
+  label: { marginTop: 12, marginBottom: 4, fontWeight: '600' },
+  button: { marginVertical: 10, borderRadius: 10 },
+  previewCard: { marginVertical: 8, borderRadius: 10, padding: 12 },
 });
